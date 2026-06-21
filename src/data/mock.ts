@@ -532,6 +532,9 @@ export const storeDistributions: StoreDistribution[] = [
     regionalOverrides: {},
     distributedAt: '2025-05-01T10:00:00Z',
     distributedBy: '运营管理员',
+    distributedVersion: 1,
+    distributedReason: '初始版本',
+    distributedEffectiveTime: '2025-10-01 00:00',
   },
   {
     id: 'dist-2',
@@ -543,6 +546,9 @@ export const storeDistributions: StoreDistribution[] = [
     regionalOverrides: {},
     distributedAt: '2025-05-05T14:00:00Z',
     distributedBy: '运营管理员',
+    distributedVersion: 1,
+    distributedReason: '初始版本',
+    distributedEffectiveTime: '2025-10-01 00:00',
   },
   {
     id: 'dist-3',
@@ -554,6 +560,9 @@ export const storeDistributions: StoreDistribution[] = [
     regionalOverrides: {},
     distributedAt: '2025-05-10T09:00:00Z',
     distributedBy: '运营管理员',
+    distributedVersion: 1,
+    distributedReason: '初始版本',
+    distributedEffectiveTime: '2025-10-01 00:00',
   },
   {
     id: 'dist-4',
@@ -565,6 +574,9 @@ export const storeDistributions: StoreDistribution[] = [
     regionalOverrides: {},
     distributedAt: '2025-05-15T11:00:00Z',
     distributedBy: '运营管理员',
+    distributedVersion: 1,
+    distributedReason: '初始版本',
+    distributedEffectiveTime: '2025-10-01 00:00',
   },
   {
     id: 'dist-5',
@@ -576,6 +588,9 @@ export const storeDistributions: StoreDistribution[] = [
     regionalOverrides: {},
     distributedAt: '2025-05-20T16:00:00Z',
     distributedBy: '运营管理员',
+    distributedVersion: 1,
+    distributedReason: '初始版本',
+    distributedEffectiveTime: '2025-10-01 00:00',
   },
   {
     id: 'dist-6',
@@ -587,6 +602,9 @@ export const storeDistributions: StoreDistribution[] = [
     regionalOverrides: {},
     distributedAt: '2025-06-01T10:00:00Z',
     distributedBy: '运营管理员',
+    distributedVersion: 1,
+    distributedReason: '初始版本',
+    distributedEffectiveTime: '2025-10-01 00:00',
   },
 ]
 

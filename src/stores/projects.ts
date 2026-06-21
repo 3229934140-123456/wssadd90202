@@ -5,18 +5,20 @@ import { projects as initialProjects } from '@/data/mock'
 interface ProjectState {
   projects: Project[]
   lastAddedProjectId: string | null
+  consumedPages: Set<string>
   addProject: (project: Project) => void
   updateProject: (id: string, updates: Partial<Project>) => void
   deleteProject: (id: string) => void
-  clearLastAdded: () => void
+  consumeLastAdded: (pageId: string) => string | null
 }
 
-export const useProjectStore = create<ProjectState>((set) => ({
+export const useProjectStore = create<ProjectState>((set, get) => ({
   projects: initialProjects,
   lastAddedProjectId: null,
+  consumedPages: new Set(),
 
   addProject: (project) => {
-    set((state) => ({ projects: [...state.projects, project], lastAddedProjectId: project.id }))
+    set((state) => ({ projects: [...state.projects, project], lastAddedProjectId: project.id, consumedPages: new Set() }))
   },
 
   updateProject: (id, updates) => {
@@ -31,7 +33,13 @@ export const useProjectStore = create<ProjectState>((set) => ({
     set((state) => ({ projects: state.projects.filter((p) => p.id !== id) }))
   },
 
-  clearLastAdded: () => {
-    set({ lastAddedProjectId: null })
+  consumeLastAdded: (pageId) => {
+    const state = get()
+    if (!state.lastAddedProjectId) return null
+    if (state.consumedPages.has(pageId)) return null
+    const newConsumed = new Set(state.consumedPages)
+    newConsumed.add(pageId)
+    set({ consumedPages: newConsumed })
+    return state.lastAddedProjectId
   },
 }))

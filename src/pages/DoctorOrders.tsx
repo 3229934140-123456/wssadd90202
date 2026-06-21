@@ -41,18 +41,18 @@ const emptyForm: OrderForm = { doctorName: '', tags: [], tagInput: '', content: 
 
 export default function DoctorOrders() {
   const { orders, addOrder, updateOrder, deleteOrder } = useDoctorOrderStore()
-  const { projects, lastAddedProjectId, clearLastAdded } = useProjectStore()
+  const { projects, consumeLastAdded } = useProjectStore()
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projects[0]?.id ?? '')
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<OrderForm>(emptyForm)
 
   useEffect(() => {
-    if (lastAddedProjectId && projects.some(p => p.id === lastAddedProjectId)) {
-      setSelectedProjectId(lastAddedProjectId)
-      clearLastAdded()
+    const pid = consumeLastAdded('doctorOrders')
+    if (pid && projects.some(p => p.id === pid)) {
+      setSelectedProjectId(pid)
     }
-  }, [lastAddedProjectId, projects, clearLastAdded])
+  }, [consumeLastAdded, projects])
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
   const projectOrders = useMemo(

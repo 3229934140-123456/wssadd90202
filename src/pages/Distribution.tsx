@@ -46,6 +46,9 @@ export default function Distribution() {
 
   const handleDistribute = () => {
     if (!selectedScheme) return
+    const latestVersion = selectedScheme.versions.length > 0
+      ? selectedScheme.versions[selectedScheme.versions.length - 1]
+      : null
     distributeScheme({
       id: `dist-${Date.now()}`,
       schemeId: selectedScheme.id,
@@ -56,6 +59,9 @@ export default function Distribution() {
       regionalOverrides: storeOverrides,
       distributedAt: new Date().toISOString(),
       distributedBy: '运营管理员',
+      distributedVersion: latestVersion?.version ?? 0,
+      distributedReason: latestVersion?.modifyReason ?? '首次下发',
+      distributedEffectiveTime: latestVersion?.effectiveTime.replace('T', ' ') ?? formatDate(new Date().toISOString()),
     })
     setSelectedSchemeId(null)
     setSelectedStoreIds([])
@@ -420,24 +426,46 @@ export default function Distribution() {
               {(() => {
                 const scheme = schemes.find(s => s.id === viewDetail.schemeId)
                 const latestVer = scheme?.versions.length ? scheme.versions[scheme.versions.length - 1] : null
+                const distVerNum = viewDetail.distributedVersion
+                const distVerObj = scheme?.versions.find(v => v.version === distVerNum)
+                const isOutdated = scheme && latestVer && distVerNum && latestVer.version > distVerNum
+
                 return (
-                  <div className="rounded-lg border border-gray-100 p-3">
-                    <p className="text-xs font-medium text-gray-500 mb-2">方案版本信息</p>
-                    {scheme ? (
-                      <div>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-sm font-medium text-gray-900">{scheme.name}</span>
-                          <StatusBadge status={scheme.status} />
+                  <div className="rounded-lg border border-gray-100 p-3 space-y-3">
+                    <p className="text-xs font-medium text-gray-500">方案版本追踪</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-lg border border-dashed border-gray-200 p-3">
+                        <p className="text-[10px] text-gray-400 mb-1">下发时版本</p>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-sm font-bold text-gray-800">v{distVerNum ?? '-'}</span>
                         </div>
-                        <p className="text-xs text-gray-500">
-                          当前最新版本：{latestVer ? `v${latestVer.version}（生效：${latestVer.effectiveTime.replace('T', ' ')}）` : '暂无版本'}
-                        </p>
-                        {latestVer && viewDetail.distributedAt && new Date(latestVer.effectiveTime) > new Date(viewDetail.distributedAt) && (
-                          <div className="mt-2 rounded bg-amber-50 px-3 py-2 flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
-                            <span className="text-xs text-amber-700">此方案在下发后有新版本发布，请关注是否需要重新下发</span>
-                          </div>
-                        )}
+                        <p className="text-[10px] text-gray-500 line-clamp-1">{viewDetail.distributedReason ?? '—'}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">生效：{viewDetail.distributedEffectiveTime ?? '-'}</p>
+                      </div>
+                      <div className={cn('rounded-lg border p-3', isOutdated ? 'border-red-300 bg-red-50/30' : 'border-[#0F766E]/30 bg-[#0F766E]/5')}>
+                        <p className="text-[10px] text-gray-400 mb-1">当前最新版本</p>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={cn('text-sm font-bold', isOutdated ? 'text-red-600' : 'text-[#0F766E]')}>v{latestVer ? latestVer.version : '-'}</span>
+                          {isOutdated && (
+                            <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white">待更新</span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-gray-500 line-clamp-1">{latestVer?.modifyReason ?? '—'}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">生效：{latestVer ? latestVer.effectiveTime.replace('T', ' ') : '-'}</p>
+                      </div>
+                    </div>
+                    {isOutdated ? (
+                      <div className="rounded bg-red-50 px-3 py-2 flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-[11px] font-medium text-red-700">版本不一致，需补发</p>
+                          <p className="text-[10px] text-red-600">当前门店仍使用 v{distVerNum}，总部已发布 v{latestVer?.version}，请重新下发以确保各门店使用最新忌口规则。</p>
+                        </div>
+                      </div>
+                    ) : scheme ? (
+                      <div className="rounded bg-green-50 px-3 py-2 flex items-center gap-2">
+                        <Check className="h-4 w-4 text-green-600 shrink-0" />
+                        <p className="text-[11px] text-green-700">门店使用的版本与总部最新版本一致，无需补发</p>
                       </div>
                     ) : (
                       <p className="text-xs text-gray-400">方案已删除</p>

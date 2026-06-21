@@ -6,9 +6,13 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useTodoStore } from '@/stores/todos'
 import type { StoreMetrics, OptimizationSuggestion, MonthlyData } from '@/types'
 import StatusBadge from '@/components/StatusBadge'
 import { cn } from '@/lib/utils'
+import type { SchemeTodo } from '@/types'
+import { useNavigate } from 'react-router-dom'
+import { ListTodo, ExternalLink, ArrowRight } from 'lucide-react'
 
 const rankBadge = (i: number) => {
   if (i === 0) return 'bg-amber-400 text-white'
@@ -18,6 +22,8 @@ const rankBadge = (i: number) => {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate()
+  const { todos, addTodo, resolveTodo } = useTodoStore()
   const { storeMetrics, suggestions, approveSuggestion, rejectSuggestion, addSuggestion } = useDashboardStore()
   const { schemes } = useSchemeStore()
   const [suggestionFilter, setSuggestionFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
@@ -26,6 +32,9 @@ export default function Dashboard() {
   const [showApproveModal, setShowApproveModal] = useState(false)
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [approveForm, setApproveForm] = useState({ actionType: 'none' as 'todo' | 'update' | 'none', linkedSchemeId: '', linkedVersion: 0 })
+  const [activeView, setActiveView] = useState<'overview' | 'ledger'>('overview')
+  const [ledgerFilter, setLedgerFilter] = useState({ store: '', scheme: '', actionType: '' as '' | 'todo' | 'update' | 'none', status: '' as '' | 'approved' | 'rejected' })
+  const [viewingSuggestionId, setViewingSuggestionId] = useState<string | null>(null)
 
   const avgActivation = useMemo(() => {
     const sum = storeMetrics.reduce((a, s) => a + s.activationRate, 0)
@@ -96,6 +105,22 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+<div className="flex items-center gap-4 border-b border-gray-100 pb-3 mb-2">
+  <h1 className="text-2xl font-bold text-gray-900">效果看板</h1>
+  <div className="ml-4 flex gap-1 rounded-lg bg-gray-100 p-1">
+    <button onClick={() => setActiveView('overview')} className={cn('rounded-md px-4 py-1.5 text-sm font-medium transition-colors', activeView === 'overview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>数据概览</button>
+    <button onClick={() => setActiveView('ledger')} className={cn('rounded-md px-4 py-1.5 text-sm font-medium transition-colors', activeView === 'ledger' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
+      审核台账
+      <Filter className="ml-1.5 inline h-3.5 w-3.5 opacity-60" />
+    </button>
+  </div>
+</div>
+{activeView === 'overview' && (
+<>
+<div className="mb-2">
+  <h1 className="text-2xl font-bold text-gray-900">效果看板</h1>
+  <p className="mt-1 text-sm text-gray-500">查看各门店启用率、阅读率与风险反馈趋势</p>
+</div>
       <div className="grid grid-cols-3 gap-5">
         {metricCards.map((card) => (
           <div key={card.label} className={cn('rounded-xl border border-gray-100 bg-gradient-to-br p-5 shadow-sm', card.bg)}>
@@ -131,8 +156,8 @@ export default function Dashboard() {
         </ResponsiveContainer>
       </div>
 
-      <div className="grid grid-cols-5 gap-5">
-        <div className="col-span-3 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+      <div className="grid grid-cols-12 gap-5">
+        <div className="col-span-7 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-800">门店排行</h2>
           <table className="w-full text-sm">
             <thead>
@@ -178,7 +203,51 @@ export default function Dashboard() {
           </table>
         </div>
 
-        <div className="col-span-2 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="col-span-5 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <ListTodo className="h-5 w-5 text-[#0F766E]" />
+              方案待办
+              {todos.filter(t => t.status !== 'resolved').length > 0 && (
+                <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">{todos.filter(t => t.status !== 'resolved').length}</span>
+              )}
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {todos.length === 0 && <p className="py-6 text-center text-xs text-gray-400">暂无待办事项</p>}
+            {todos.map((t) => {
+              const resolved = t.status === 'resolved'
+              return (
+                <div key={t.id} className={cn('rounded-lg border p-3.5', resolved ? 'border-gray-100 bg-gray-50/30' : 'border-[#D4A853]/30 bg-[#D4A853]/5')}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={cn('rounded px-2 py-0.5 text-[10px] font-medium', resolved ? 'bg-gray-200 text-gray-600' : 'bg-[#D4A853]/20 text-[#9a7a3a]')}>
+                          {resolved ? '已完成' : '待处理'}
+                        </span>
+                        <span className="text-xs font-medium text-gray-700 truncate">{t.schemeName}</span>
+                      </div>
+                      <p className="text-xs text-gray-600 line-clamp-2">{t.suggestionContent}</p>
+                      <div className="mt-1.5 flex items-center gap-2 text-[10px] text-gray-400">
+                        <span>{t.storeName} · 提交</span>
+                        <span>·</span>
+                        <span>{t.createdAt}</span>
+                        {resolved && t.resolvedVersion && (<><span>·</span><span className="text-[#0F766E]">已落到 v{t.resolvedVersion}</span></>)}
+                      </div>
+                    </div>
+                    {!resolved && (
+                      <button onClick={() => navigate(`/schemes/${t.schemeId}?todoId=${t.id}&suggestionId=${t.suggestionId}`)} className="shrink-0 inline-flex items-center gap-1 rounded-md bg-[#0F766E] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[#0d6a63]">
+                        <ExternalLink className="h-3 w-3" />处理
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="col-span-5 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-800">优化建议</h2>
             <div className="flex items-center gap-2">
@@ -245,6 +314,115 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+</>
+)}
+{activeView === 'ledger' && (
+<div className="space-y-5">
+  <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+    <div className="flex flex-wrap items-center gap-4">
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-gray-500">门店</label>
+        <select value={ledgerFilter.store} onChange={(e) => setLedgerFilter(f => ({ ...f, store: e.target.value }))} className="rounded-md border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#0F766E]">
+          <option value="">全部门店</option>
+          {stores.filter(s => s.isActive).map(s => (
+            <option key={s.id} value={s.name}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-gray-500">方案</label>
+        <select value={ledgerFilter.scheme} onChange={(e) => setLedgerFilter(f => ({ ...f, scheme: e.target.value }))} className="rounded-md border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#0F766E]">
+          <option value="">全部方案</option>
+          {schemes.map(s => (
+            <option key={s.id} value={s.name}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-gray-500">处理方式</label>
+        <select value={ledgerFilter.actionType} onChange={(e) => setLedgerFilter(f => ({ ...f, actionType: e.target.value as any }))} className="rounded-md border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#0F766E]">
+          <option value="">全部</option>
+          <option value="todo">生成方案待办</option>
+          <option value="update">关联方案版本</option>
+          <option value="none">仅标记采纳</option>
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-gray-500">状态</label>
+        <select value={ledgerFilter.status} onChange={(e) => setLedgerFilter(f => ({ ...f, status: e.target.value as any }))} className="rounded-md border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#0F766E]">
+          <option value="">全部</option>
+          <option value="approved">已采纳</option>
+          <option value="rejected">已拒绝</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+    <div className="border-b border-gray-100 bg-gray-50/50 px-5 py-3">
+      <h3 className="text-sm font-semibold text-gray-800">审核记录</h3>
+    </div>
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="bg-gray-50/80 text-gray-400">
+          <th className="px-5 py-3 text-left font-medium">门店</th>
+          <th className="px-5 py-3 text-left font-medium">建议内容</th>
+          <th className="px-5 py-3 text-left font-medium">关联方案</th>
+          <th className="px-5 py-3 text-left font-medium">处理方式</th>
+          <th className="px-5 py-3 text-left font-medium">结果</th>
+          <th className="px-5 py-3 text-left font-medium">处理时间</th>
+          <th className="px-5 py-3 text-left font-medium">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {(() => {
+          const processed = suggestions.filter(s => s.status !== 'pending')
+          const filtered = processed.filter(s => {
+            if (ledgerFilter.store && s.storeName !== ledgerFilter.store) return false
+            if (ledgerFilter.scheme && s.relatedSchemeName !== ledgerFilter.scheme && s.linkedSchemeName !== ledgerFilter.scheme) return false
+            if (ledgerFilter.actionType && s.actionType !== ledgerFilter.actionType) return false
+            if (ledgerFilter.status && s.status !== ledgerFilter.status) return false
+            return true
+          })
+          if (filtered.length === 0) {
+            return <tr><td colSpan={7} className="px-5 py-10 text-center text-xs text-gray-400">暂无审核记录</td></tr>
+          }
+          return filtered.map(s => {
+            const actionLabel = s.actionType === 'todo' ? '生成待办' : s.actionType === 'update' ? '关联版本' : '标记采纳'
+            const actionColor = s.actionType === 'todo' ? 'bg-[#D4A853]/10 text-[#9a7a3a]' : s.actionType === 'update' ? 'bg-[#0F766E]/10 text-[#0F766E]' : 'bg-gray-100 text-gray-600'
+            return (
+              <tr key={s.id} className="border-t border-gray-50 hover:bg-gray-50/50">
+                <td className="px-5 py-3">
+                  <span className="font-medium text-gray-800">{s.storeName}</span>
+                </td>
+                <td className="px-5 py-3 max-w-[280px]">
+                  <p className="line-clamp-2 text-gray-600">{s.content}</p>
+                </td>
+                <td className="px-5 py-3">
+                  <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">{s.linkedSchemeName || s.relatedSchemeName}</span>
+                  {s.linkedVersion && <span className="ml-1 text-[10px] font-medium text-[#0F766E]">v{s.linkedVersion}</span>}
+                </td>
+                <td className="px-5 py-3">
+                  <span className={cn('rounded px-2 py-0.5 text-[10px] font-medium', actionColor)}>{actionLabel}</span>
+                </td>
+                <td className="px-5 py-3">
+                  <StatusBadge status={s.status} />
+                </td>
+                <td className="px-5 py-3 text-gray-500">
+                  {s.processedAt || s.createdAt}
+                </td>
+                <td className="px-5 py-3">
+                  <button onClick={() => setViewingSuggestionId(s.id)} className="font-medium text-[#0F766E] hover:underline">查看链路</button>
+                </td>
+              </tr>
+            )
+          })
+        })()}
+      </tbody>
+    </table>
+  </div>
+</div>
+)}
 
       {showApproveModal && approvingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -300,6 +478,22 @@ export default function Dashboard() {
                   extra.linkedSchemeId = approveForm.linkedSchemeId
                   extra.linkedSchemeName = scheme?.name ?? ''
                   extra.linkedVersion = approveForm.linkedVersion || undefined
+                  if (approveForm.actionType === 'todo' && approveForm.linkedSchemeId) {
+                    const suggestion = suggestions.find(s => s.id === approvingId)
+                    const schemeMatch = schemes.find(s => s.id === approveForm.linkedSchemeId)
+                    addTodo({
+                      id: `todo-${Date.now()}`,
+                      suggestionId: approvingId!,
+                      storeName: suggestion?.storeName ?? '',
+                      storeId: suggestion?.storeId ?? '',
+                      suggestionContent: suggestion?.content ?? '',
+                      schemeId: approveForm.linkedSchemeId,
+                      schemeName: schemeMatch?.name ?? '',
+                      status: 'pending',
+                      createdBy: '运营管理员',
+                      createdAt: new Date().toISOString().slice(0, 10),
+                    })
+                  }
                 }
                 approveSuggestion(approvingId, extra as any)
                 setShowApproveModal(false)
@@ -351,6 +545,111 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+{viewingSuggestionId && (() => {
+  const suggestion = suggestions.find(s => s.id === viewingSuggestionId)
+  const todo = useTodoStore.getState().todos.find(t => t.suggestionId === viewingSuggestionId)
+  const scheme = suggestion?.linkedSchemeId ? schemes.find(s => s.id === suggestion.linkedSchemeId) : null
+  const linkedVersionObj = scheme && suggestion?.linkedVersion ? scheme.versions.find(v => v.version === suggestion.linkedVersion) : null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-[560px] rounded-xl bg-white p-6 shadow-xl max-h-[85vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-gray-900">处理链路追踪</h2>
+          <button onClick={() => setViewingSuggestionId(null)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto space-y-0">
+          <div className="relative flex gap-4 pb-5">
+            <div className="absolute left-[11px] top-6 h-full w-0.5 bg-[#0F766E]/20" />
+            <div className="relative z-10 mt-0.5 h-6 w-6 shrink-0 rounded-full bg-blue-500 flex items-center justify-center">
+              <span className="text-[10px] font-bold text-white">1</span>
+            </div>
+            <div className="flex-1 rounded-lg border border-gray-100 bg-blue-50/30 p-3">
+              <p className="text-[10px] font-semibold text-blue-600 mb-1">门店提交建议</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-medium text-gray-800">{suggestion?.storeName}</span>
+                <span className="text-[10px] text-gray-400">{suggestion?.submitter} · {suggestion?.createdAt}</span>
+              </div>
+              <p className="text-xs text-gray-600">{suggestion?.content}</p>
+            </div>
+          </div>
+
+          <div className="relative flex gap-4 pb-5">
+            <div className="absolute left-[11px] top-6 h-full w-0.5 bg-[#0F766E]/20" />
+            <div className="relative z-10 mt-0.5 h-6 w-6 shrink-0 rounded-full bg-[#D4A853] flex items-center justify-center">
+              <span className="text-[10px] font-bold text-white">2</span>
+            </div>
+            <div className="flex-1 rounded-lg border border-gray-100 bg-[#D4A853]/5 p-3">
+              <p className="text-[10px] font-semibold text-[#9a7a3a] mb-1">总部审核处理</p>
+              <div className="flex items-center gap-2 mb-1.5">
+                <StatusBadge status={suggestion?.status ?? 'pending'} />
+                {suggestion?.actionType && (
+                  <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">
+                    {suggestion.actionType === 'todo' ? '生成方案待办' : suggestion.actionType === 'update' ? '关联方案版本' : '仅标记采纳'}
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-gray-400">处理时间：{suggestion?.processedAt ?? '—'}</p>
+            </div>
+          </div>
+
+          {todo && (
+            <div className="relative flex gap-4 pb-5">
+              <div className="absolute left-[11px] top-6 h-full w-0.5 bg-[#0F766E]/20" />
+              <div className="relative z-10 mt-0.5 h-6 w-6 shrink-0 rounded-full bg-amber-500 flex items-center justify-center">
+                <span className="text-[10px] font-bold text-white">3</span>
+              </div>
+              <div className="flex-1 rounded-lg border border-gray-100 bg-amber-50/30 p-3">
+                <p className="text-[10px] font-semibold text-amber-700 mb-1">方案待办</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-medium text-gray-800">{todo.schemeName}</span>
+                  <span className={cn('rounded px-2 py-0.5 text-[10px] font-medium', todo.status === 'resolved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}>
+                    {todo.status === 'resolved' ? '已完成' : '处理中'}
+                  </span>
+                </div>
+                {todo.status === 'resolved' && todo.resolvedVersion && (
+                  <p className="text-[11px] text-green-700">已落到方案版本 v{todo.resolvedVersion}</p>
+                )}
+                <p className="mt-1 text-[10px] text-gray-400">创建：{todo.createdAt}{todo.resolvedAt ? ` · 完成：${todo.resolvedAt}` : ''}</p>
+              </div>
+            </div>
+          )}
+
+          {linkedVersionObj && (
+            <div className="relative flex gap-4 pb-0">
+              <div className="relative z-10 mt-0.5 h-6 w-6 shrink-0 rounded-full bg-[#0F766E] flex items-center justify-center">
+                <span className="text-[10px] font-bold text-white">{todo ? 4 : 3}</span>
+              </div>
+              <div className="flex-1 rounded-lg border border-gray-100 bg-[#0F766E]/5 p-3">
+                <p className="text-[10px] font-semibold text-[#0F766E] mb-1">方案版本落地</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-bold text-gray-800">v{linkedVersionObj.version}</span>
+                  <span className="text-[10px] text-gray-400">生效：{linkedVersionObj.effectiveTime.replace('T', ' ')}</span>
+                </div>
+                <p className="text-xs text-gray-600">{linkedVersionObj.modifyReason}</p>
+                <p className="mt-1 text-[10px] text-gray-400">修改人：{linkedVersionObj.modifiedBy}</p>
+              </div>
+            </div>
+          )}
+
+          {!todo && !linkedVersionObj && suggestion?.status === 'approved' && suggestion?.actionType === 'none' && (
+            <div className="relative flex gap-4 pb-0">
+              <div className="relative z-10 mt-0.5 h-6 w-6 shrink-0 rounded-full bg-gray-400 flex items-center justify-center">
+                <span className="text-[10px] font-bold text-white">3</span>
+              </div>
+              <div className="flex-1 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <p className="text-[10px] font-semibold text-gray-500 mb-1">处理完成</p>
+                <p className="text-xs text-gray-500">仅标记采纳，未生成待办或关联方案版本</p>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button onClick={() => setViewingSuggestionId(null)} className="rounded-lg bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0d6a63]">关闭</button>
+        </div>
+      </div>
+    </div>
+  )
+})()}
     </div>
   )
 }

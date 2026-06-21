@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, Send, Plus, Trash2, Clock, X } from 'lucide-react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Save, Send, Plus, Trash2, Clock, X, ListTodo, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSchemeStore } from '@/stores/schemes'
 import { useCategoryStore } from '@/stores/categories'
+import { useTodoStore } from '@/stores/todos'
 import StatusBadge from '@/components/StatusBadge'
 import SeverityTag from '@/components/SeverityTag'
 import type { Scheme, FoodItem, RecoveryStage } from '@/types'
@@ -40,6 +41,12 @@ export default function SchemeDetail() {
 
   const isNew = id === 'new'
   const existing = isNew ? null : schemes.find((s) => s.id === id)
+
+  const [searchParams] = useSearchParams()
+  const todoId = searchParams.get('todoId')
+  const suggestionIdParam = searchParams.get('suggestionId')
+  const { todos, resolveTodo } = useTodoStore()
+  const currentTodo = todos.find((t) => t.id === todoId)
 
   const [form, setForm] = useState<Scheme>(emptyScheme)
   const [newProhibited, setNewProhibited] = useState<{ name: string; reason: string; severity: 'high' | 'medium' | 'low' }>({ name: '', reason: '', severity: 'high' })
@@ -119,6 +126,10 @@ export default function SchemeDetail() {
     } else if (pendingAction === 'publish') {
       updateScheme(form.id, { ...updatedForm, status: 'published' })
       publishScheme(form.id)
+      if (todoId) {
+        const newVer = form.versions.length + 1
+        resolveTodo(todoId, newVer)
+      }
     }
 
     setShowVersionModal(false)
@@ -202,6 +213,29 @@ export default function SchemeDetail() {
           </div>
         </div>
       </div>
+
+      {currentTodo && currentTodo.status !== 'resolved' && (
+        <div className="border-b border-[#D4A853]/30 bg-gradient-to-r from-[#D4A853]/10 to-transparent px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#D4A853]/20">
+                <ListTodo className="h-4 w-4 text-[#D4A853]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[#9a7a3a]">关联待办</span>
+                  <ArrowRight className="h-3 w-3 text-gray-400" />
+                  <span className="text-xs text-gray-500">{currentTodo.storeName} 建议</span>
+                </div>
+                <p className="mt-0.5 text-xs text-gray-700">{currentTodo.suggestionContent}</p>
+              </div>
+            </div>
+            <span className="rounded-full bg-white/70 px-3 py-1 text-[11px] text-gray-500">
+              发布方案后将自动完成待办并记录版本
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-6 p-6">
         <div className="w-[60%] space-y-6">

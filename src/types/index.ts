@@ -84,6 +84,9 @@ export interface StoreDistribution {
   regionalOverrides: Record<string, string>
   distributedAt: string
   distributedBy: string
+  distributedVersion?: number
+  distributedReason?: string
+  distributedEffectiveTime?: string
 }
 
 export interface HolidayReminder {
@@ -144,4 +147,34 @@ export interface OptimizationSuggestion {
   actionType?: 'todo' | 'update' | 'none'
   processedAt?: string
   createdAt: string
+}
+
+export interface TodoItem {
+  id: string
+  suggestionId: string
+  schemeId: string
+  schemeName: string
+  status: 'pending' | 'resolved'
+  resolvedVersion?: number
+  createdAt: string
+  resolvedAt?: string
+  storeName?: string
+  storeId?: string
+  suggestionContent?: string
+  createdBy?: string
+}
+
+export interface SchemeTodo {
+  id: string
+  suggestionId: string
+  storeName: string
+  storeId: string
+  suggestionContent: string
+  schemeId: string
+  schemeName: string
+  status: 'pending' | 'in_progress' | 'resolved'
+  createdBy: string
+  createdAt: string
+  resolvedAt?: string
+  resolvedVersion?: number
 }
