@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { useSchemeStore } from '@/stores/schemes'
 import { useCategoryStore } from '@/stores/categories'
 import { useTodoStore } from '@/stores/todos'
+import { useDashboardStore } from '@/stores/dashboard'
 import StatusBadge from '@/components/StatusBadge'
 import SeverityTag from '@/components/SeverityTag'
 import type { Scheme, FoodItem, RecoveryStage } from '@/types'
@@ -47,6 +48,7 @@ export default function SchemeDetail() {
   const suggestionIdParam = searchParams.get('suggestionId')
   const { todos, resolveTodo } = useTodoStore()
   const currentTodo = todos.find((t) => t.id === todoId)
+  const { suggestions, updateSuggestion } = useDashboardStore()
 
   const [form, setForm] = useState<Scheme>(emptyScheme)
   const [newProhibited, setNewProhibited] = useState<{ name: string; reason: string; severity: 'high' | 'medium' | 'low' }>({ name: '', reason: '', severity: 'high' })
@@ -129,6 +131,13 @@ export default function SchemeDetail() {
       if (todoId) {
         const newVer = form.versions.length + 1
         resolveTodo(todoId, newVer)
+        if (suggestionIdParam) {
+          updateSuggestion(suggestionIdParam, {
+            linkedVersion: newVer,
+            linkedSchemeId: form.id,
+            linkedSchemeName: form.name,
+          })
+        }
       }
     }
 
@@ -230,9 +239,14 @@ export default function SchemeDetail() {
                 <p className="mt-0.5 text-xs text-gray-700">{currentTodo.suggestionContent}</p>
               </div>
             </div>
-            <span className="rounded-full bg-white/70 px-3 py-1 text-[11px] text-gray-500">
-              发布方案后将自动完成待办并记录版本
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full bg-white/70 px-3 py-1 text-[11px] text-gray-500">
+                发布方案后将自动完成待办并记录版本
+              </span>
+              <button onClick={() => navigate('/dashboard')} className="inline-flex items-center gap-1 rounded-full bg-[#0F766E]/10 px-3 py-1 text-[11px] font-medium text-[#0F766E] hover:bg-[#0F766E]/20 transition-colors">
+                <ArrowLeft className="h-3 w-3" />返回看板
+              </button>
+            </div>
           </div>
         </div>
       )}

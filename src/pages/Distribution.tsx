@@ -27,6 +27,7 @@ export default function Distribution() {
   const [storeOverrides, setStoreOverrides] = useState<Record<string, string>>({})
   const [viewOverrides, setViewOverrides] = useState<StoreDistribution | null>(null)
   const [viewDetail, setViewDetail] = useState<StoreDistribution | null>(null)
+  const [resendDist, setResendDist] = useState<StoreDistribution | null>(null)
 
   const [homepageCopy, setHomepageCopy] = useState(miniAppConfig.homepageCopy)
   const [brandTone, setBrandTone] = useState(miniAppConfig.brandTone)
@@ -243,6 +244,16 @@ export default function Distribution() {
                         <div className="flex items-center gap-3">
                           <button onClick={() => setViewDetail(d)} className="text-xs font-medium text-[#0F766E] hover:text-[#0d6a63] hover:underline">回看详情</button>
                           <button onClick={() => setViewOverrides(d)} className="text-xs font-medium text-gray-500 hover:text-gray-700 hover:underline">查看差异</button>
+                          {(() => {
+                            const scheme = schemes.find(s => s.id === d.schemeId)
+                            const latestVer = scheme?.versions.length ? scheme.versions[scheme.versions.length - 1] : null
+                            const isOutdated = latestVer && d.distributedVersion && latestVer.version > d.distributedVersion
+                            return isOutdated ? (
+                              <button onClick={() => setResendDist(d)} className="inline-flex items-center gap-1 rounded-md bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-600 hover:bg-red-500/20 transition-colors">
+                                <Send className="h-3 w-3" />补发
+                              </button>
+                            ) : null
+                          })()}
                         </div>
                       </td>
                     </tr>
@@ -480,6 +491,66 @@ export default function Distribution() {
           </div>
         </div>
       )}
+
+      {resendDist && (() => {
+        const scheme = schemes.find(s => s.id === resendDist.schemeId)
+        const latestVer = scheme?.versions.length ? scheme.versions[scheme.versions.length - 1] : null
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="w-[480px] rounded-xl bg-white p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-semibold text-gray-900">确认补发</h2>
+                <button onClick={() => setResendDist(null)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+              </div>
+              <div className="space-y-4">
+                <div className="rounded-lg bg-red-50 p-3">
+                  <p className="text-xs font-medium text-red-700 mb-1">版本不一致</p>
+                  <p className="text-[11px] text-red-600">下发版本 v{resendDist.distributedVersion} → 当前版本 v{latestVer?.version ?? '-'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">方案</span>
+                    <span className="font-medium text-gray-800">{resendDist.schemeName}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">覆盖门店</span>
+                    <span className="font-medium text-gray-800">{resendDist.storeIds.length} 家</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">区域差异</span>
+                    <span className="font-medium text-gray-800">{resendDist.allowRegionalDiff ? `${Object.entries(resendDist.regionalOverrides || {}).filter(([_, v]) => v).length} 家门店有差异` : '未启用'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">新版本</span>
+                    <span className="font-medium text-[#0F766E]">v{latestVer?.version ?? '-'}</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-400">补发将沿用原门店范围和区域差异设置，以最新版本重新下发</p>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={() => setResendDist(null)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">取消</button>
+                <button onClick={() => {
+                  distributeScheme({
+                    id: `dist-${Date.now()}`,
+                    schemeId: resendDist.schemeId,
+                    schemeName: resendDist.schemeName,
+                    storeIds: resendDist.storeIds,
+                    status: 'pending',
+                    allowRegionalDiff: resendDist.allowRegionalDiff,
+                    regionalOverrides: resendDist.regionalOverrides,
+                    distributedAt: new Date().toISOString(),
+                    distributedBy: '运营管理员',
+                    distributedVersion: latestVer?.version ?? 0,
+                    distributedReason: latestVer?.modifyReason ?? '补发',
+                    distributedEffectiveTime: latestVer?.effectiveTime.replace('T', ' ') ?? formatDate(new Date().toISOString()),
+                  })
+                  setResendDist(null)
+                }} className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600">确认补发</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

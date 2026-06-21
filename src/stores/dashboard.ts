@@ -8,6 +8,7 @@ interface DashboardState {
   approveSuggestion: (id: string, extra?: { linkedSchemeId?: string; linkedSchemeName?: string; linkedVersion?: number; actionType?: 'todo' | 'update' | 'none' }) => void
   rejectSuggestion: (id: string) => void
   addSuggestion: (suggestion: OptimizationSuggestion) => void
+  updateSuggestion: (id: string, updates: Partial<OptimizationSuggestion>) => void
 }
 
 export const useDashboardStore = create<DashboardState>((set) => ({
@@ -32,5 +33,11 @@ export const useDashboardStore = create<DashboardState>((set) => ({
 
   addSuggestion: (suggestion) => {
     set((state) => ({ suggestions: [suggestion, ...state.suggestions] }))
+  },
+
+  updateSuggestion: (id, updates) => {
+    set((state) => ({
+      suggestions: state.suggestions.map((s) => s.id === id ? { ...s, ...updates } : s)
+    }))
   },
 }))

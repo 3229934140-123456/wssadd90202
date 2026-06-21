@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { TrendingUp, Eye, AlertTriangle, Check, X, Filter, Plus } from 'lucide-react'
+import { TrendingUp, Eye, AlertTriangle, Check, X, Filter, Plus, Download } from 'lucide-react'
 import { stores } from '@/data/mock'
 import { useSchemeStore } from '@/stores/schemes'
 import {
@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useTodoStore } from '@/stores/todos'
+import { useDistributionStore } from '@/stores/distribution'
 import type { StoreMetrics, OptimizationSuggestion, MonthlyData } from '@/types'
 import StatusBadge from '@/components/StatusBadge'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,7 @@ export default function Dashboard() {
   const { todos, addTodo, resolveTodo } = useTodoStore()
   const { storeMetrics, suggestions, approveSuggestion, rejectSuggestion, addSuggestion } = useDashboardStore()
   const { schemes } = useSchemeStore()
+  const { distributions: allDistributions } = useDistributionStore()
   const [suggestionFilter, setSuggestionFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [submitForm, setSubmitForm] = useState({ storeId: '', relatedSchemeId: '', content: '', submitter: '' })
@@ -33,7 +35,7 @@ export default function Dashboard() {
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [approveForm, setApproveForm] = useState({ actionType: 'none' as 'todo' | 'update' | 'none', linkedSchemeId: '', linkedVersion: 0 })
   const [activeView, setActiveView] = useState<'overview' | 'ledger'>('overview')
-  const [ledgerFilter, setLedgerFilter] = useState({ store: '', scheme: '', actionType: '' as '' | 'todo' | 'update' | 'none', status: '' as '' | 'approved' | 'rejected' })
+  const [ledgerFilter, setLedgerFilter] = useState({ store: '', scheme: '', actionType: '' as '' | 'todo' | 'update' | 'none' | 'rejected', status: '' as '' | 'approved' | 'rejected' })
   const [viewingSuggestionId, setViewingSuggestionId] = useState<string | null>(null)
 
   const avgActivation = useMemo(() => {
@@ -102,6 +104,32 @@ export default function Dashboard() {
     { key: 'approved' as const, label: '已采纳' },
     { key: 'rejected' as const, label: '已拒绝' },
   ]
+
+  const handleExport = () => {
+    const processed = suggestions.filter(s => s.status !== 'pending')
+    const filtered = processed.filter(s => {
+      if (ledgerFilter.store && s.storeName !== ledgerFilter.store) return false
+      if (ledgerFilter.scheme && s.relatedSchemeName !== ledgerFilter.scheme && s.linkedSchemeName !== ledgerFilter.scheme) return false
+      if (ledgerFilter.actionType === 'rejected' && s.status !== 'rejected') return false
+      if (ledgerFilter.actionType && ledgerFilter.actionType !== 'rejected' && s.actionType !== ledgerFilter.actionType) return false
+      if (ledgerFilter.status && s.status !== ledgerFilter.status) return false
+      return true
+    })
+    const header = '门店,建议内容,关联方案,处理方式,结果,处理时间,落地版本'
+    const rows = filtered.map(s => {
+      const actionLabel = s.status === 'rejected' ? '已拒绝' : s.actionType === 'todo' ? '生成待办' : s.actionType === 'update' ? '关联版本' : '标记采纳'
+      const version = s.linkedVersion ? `v${s.linkedVersion}` : '-'
+      return `"${s.storeName}","${s.content.replace(/"/g, '""')}","${s.linkedSchemeName || s.relatedSchemeName}","${actionLabel}","${s.status === 'approved' ? '已采纳' : '已拒绝'}","${s.processedAt || s.createdAt}","${version}"`
+    })
+    const csv = '\uFEFF' + header + '\n' + rows.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `审核台账_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="space-y-6">
@@ -345,6 +373,7 @@ export default function Dashboard() {
           <option value="todo">生成方案待办</option>
           <option value="update">关联方案版本</option>
           <option value="none">仅标记采纳</option>
+          <option value="rejected">已拒绝</option>
         </select>
       </div>
       <div className="flex items-center gap-2">
@@ -359,8 +388,11 @@ export default function Dashboard() {
   </div>
 
   <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-    <div className="border-b border-gray-100 bg-gray-50/50 px-5 py-3">
+    <div className="border-b border-gray-100 bg-gray-50/50 px-5 py-3 flex items-center justify-between">
       <h3 className="text-sm font-semibold text-gray-800">审核记录</h3>
+      <button onClick={handleExport} className="inline-flex items-center gap-1.5 rounded-md bg-white border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+        <Download className="h-3.5 w-3.5" />导出
+      </button>
     </div>
     <table className="w-full text-xs">
       <thead>
@@ -380,7 +412,8 @@ export default function Dashboard() {
           const filtered = processed.filter(s => {
             if (ledgerFilter.store && s.storeName !== ledgerFilter.store) return false
             if (ledgerFilter.scheme && s.relatedSchemeName !== ledgerFilter.scheme && s.linkedSchemeName !== ledgerFilter.scheme) return false
-            if (ledgerFilter.actionType && s.actionType !== ledgerFilter.actionType) return false
+            if (ledgerFilter.actionType === 'rejected' && s.status !== 'rejected') return false
+            if (ledgerFilter.actionType && ledgerFilter.actionType !== 'rejected' && s.actionType !== ledgerFilter.actionType) return false
             if (ledgerFilter.status && s.status !== ledgerFilter.status) return false
             return true
           })
@@ -388,8 +421,8 @@ export default function Dashboard() {
             return <tr><td colSpan={7} className="px-5 py-10 text-center text-xs text-gray-400">暂无审核记录</td></tr>
           }
           return filtered.map(s => {
-            const actionLabel = s.actionType === 'todo' ? '生成待办' : s.actionType === 'update' ? '关联版本' : '标记采纳'
-            const actionColor = s.actionType === 'todo' ? 'bg-[#D4A853]/10 text-[#9a7a3a]' : s.actionType === 'update' ? 'bg-[#0F766E]/10 text-[#0F766E]' : 'bg-gray-100 text-gray-600'
+            const actionLabel = s.status === 'rejected' ? '已拒绝' : s.actionType === 'todo' ? '生成待办' : s.actionType === 'update' ? '关联版本' : '标记采纳'
+            const actionColor = s.status === 'rejected' ? 'bg-red-50 text-red-600' : s.actionType === 'todo' ? 'bg-[#D4A853]/10 text-[#9a7a3a]' : s.actionType === 'update' ? 'bg-[#0F766E]/10 text-[#0F766E]' : 'bg-gray-100 text-gray-600'
             return (
               <tr key={s.id} className="border-t border-gray-50 hover:bg-gray-50/50">
                 <td className="px-5 py-3">
@@ -472,6 +505,14 @@ export default function Dashboard() {
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => { setShowApproveModal(false); setApprovingId(null) }} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">取消</button>
               <button onClick={() => {
+                if (approveForm.actionType === 'todo' && !approveForm.linkedSchemeId) {
+                  alert('请选择关联方案后再确认')
+                  return
+                }
+                if (approveForm.actionType === 'update' && (!approveForm.linkedSchemeId || !approveForm.linkedVersion)) {
+                  alert('请选择关联方案和版本后再确认')
+                  return
+                }
                 const extra: Record<string, unknown> = { actionType: approveForm.actionType }
                 if (approveForm.actionType !== 'none') {
                   const scheme = schemes.find(s => s.id === approveForm.linkedSchemeId)
@@ -606,6 +647,7 @@ export default function Dashboard() {
                     {todo.status === 'resolved' ? '已完成' : '处理中'}
                   </span>
                 </div>
+                <p className="text-[10px] text-gray-400">处理人：{todo.createdBy}</p>
                 {todo.status === 'resolved' && todo.resolvedVersion && (
                   <p className="text-[11px] text-green-700">已落到方案版本 v{todo.resolvedVersion}</p>
                 )}
@@ -627,6 +669,23 @@ export default function Dashboard() {
                 </div>
                 <p className="text-xs text-gray-600">{linkedVersionObj.modifyReason}</p>
                 <p className="mt-1 text-[10px] text-gray-400">修改人：{linkedVersionObj.modifiedBy}</p>
+                {(() => {
+                  const relatedDists = useDistributionStore.getState().distributions.filter(d => d.schemeId === suggestion?.linkedSchemeId && d.distributedVersion && d.distributedVersion >= linkedVersionObj.version)
+                  const hasDistribution = relatedDists.length > 0
+                  const hasResend = relatedDists.some(d => d.distributedReason?.includes('补发'))
+                  return (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      {hasDistribution ? (
+                        <span className="text-[10px] text-green-600">已下发到 {relatedDists.reduce((acc, d) => acc + d.storeIds.length, 0)} 家门店</span>
+                      ) : (
+                        <span className="text-[10px] text-amber-600">尚未下发</span>
+                      )}
+                      {hasResend && (
+                        <span className="rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-medium text-red-600">含补发</span>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           )}
