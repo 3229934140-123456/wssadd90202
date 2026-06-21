@@ -36,6 +36,8 @@ export interface SchemeVersion {
   modifyReason: string
   effectiveTime: string
   createdAt: string
+  prohibitedChanges?: string
+  recommendedChanges?: string
 }
 
 export interface Scheme {
@@ -136,5 +138,10 @@ export interface OptimizationSuggestion {
   relatedSchemeId: string
   relatedSchemeName: string
   status: 'pending' | 'approved' | 'rejected'
+  linkedSchemeId?: string
+  linkedSchemeName?: string
+  linkedVersion?: number
+  actionType?: 'todo' | 'update' | 'none'
+  processedAt?: string
   createdAt: string
 }

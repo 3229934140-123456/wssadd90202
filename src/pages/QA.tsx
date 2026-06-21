@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Search, Plus, Pencil, Trash2, ChevronDown, ChevronRight, X, Check, MessageCircleQuestion } from 'lucide-react'
 import { useQAStore } from '@/stores/qa'
 import { useProjectStore } from '@/stores/projects'
@@ -16,7 +16,7 @@ const empty: Form = { question: '', answer: '', relatedProjectIds: [], tags: [],
 
 export default function QA() {
   const { items, addQA, updateQA, deleteQA } = useQAStore()
-  const { projects } = useProjectStore()
+  const { projects, lastAddedProjectId, clearLastAdded } = useProjectStore()
   const [search, setSearch] = useState('')
   const [filterId, setFilterId] = useState('')
   const [expCats, setExpCats] = useState<Set<string>>(new Set(categories.map((c) => c.id)))
@@ -24,6 +24,13 @@ export default function QA() {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<Form>(empty)
+
+  useEffect(() => {
+    if (lastAddedProjectId && projects.some(p => p.id === lastAddedProjectId)) {
+      setFilterId(lastAddedProjectId)
+      clearLastAdded()
+    }
+  }, [lastAddedProjectId, projects, clearLastAdded])
 
   const filtered = useMemo(() => items.filter((i) => {
     const ms = !search || i.question.includes(search) || i.answer.includes(search)

@@ -125,13 +125,13 @@ export default function Schemes() {
                 <div className="flex items-center justify-between border-t border-gray-50 pt-3">
                   <span className="inline-flex items-center gap-1 text-xs text-gray-400">
                     <Clock className="h-3.5 w-3.5" />
-                    {formatDate(scheme.updatedAt)}
+                    {scheme.status === 'published' && scheme.versions.length > 0
+                      ? `生效：${scheme.versions[scheme.versions.length - 1].effectiveTime.replace('T', ' ')}`
+                      : formatDate(scheme.updatedAt)}
                   </span>
                   <span className="rounded-full bg-[#0F766E]/10 px-2.5 py-0.5 text-xs font-medium text-[#0F766E]">
                     {frequencyLabels[scheme.reminderFrequency]}
-                    {scheme.reminderFrequency === 'custom' && scheme.customFrequency
-                      ? `(${scheme.customFrequency})`
-                      : ''}
+                    {scheme.reminderFrequency === 'custom' && scheme.customFrequency ? `(${scheme.customFrequency})` : ''}
                   </span>
                 </div>
               </div>

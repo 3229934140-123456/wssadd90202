@@ -5,7 +5,7 @@ import { storeMetrics as initialMetrics, optimizationSuggestions as initialSugge
 interface DashboardState {
   storeMetrics: StoreMetrics[]
   suggestions: OptimizationSuggestion[]
-  approveSuggestion: (id: string) => void
+  approveSuggestion: (id: string, extra?: { linkedSchemeId?: string; linkedSchemeName?: string; linkedVersion?: number; actionType?: 'todo' | 'update' | 'none' }) => void
   rejectSuggestion: (id: string) => void
   addSuggestion: (suggestion: OptimizationSuggestion) => void
 }
@@ -14,10 +14,10 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   storeMetrics: initialMetrics,
   suggestions: initialSuggestions,
 
-  approveSuggestion: (id) => {
+  approveSuggestion: (id, extra) => {
     set((state) => ({
       suggestions: state.suggestions.map((s) =>
-        s.id === id ? { ...s, status: 'approved' as const } : s
+        s.id === id ? { ...s, status: 'approved' as const, ...extra, processedAt: new Date().toISOString().slice(0, 10) } : s
       ),
     }))
   },

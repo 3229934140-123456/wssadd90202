@@ -23,6 +23,9 @@ export default function Dashboard() {
   const [suggestionFilter, setSuggestionFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [submitForm, setSubmitForm] = useState({ storeId: '', relatedSchemeId: '', content: '', submitter: '' })
+  const [showApproveModal, setShowApproveModal] = useState(false)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [approveForm, setApproveForm] = useState({ actionType: 'none' as 'todo' | 'update' | 'none', linkedSchemeId: '', linkedVersion: 0 })
 
   const avgActivation = useMemo(() => {
     const sum = storeMetrics.reduce((a, s) => a + s.activationRate, 0)
@@ -208,7 +211,14 @@ export default function Dashboard() {
                     <span className="text-sm font-medium text-gray-800">{s.storeName}</span>
                     <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">{s.relatedSchemeName}</span>
                   </div>
-                  <StatusBadge status={s.status} />
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={s.status} />
+                    {s.status === 'approved' && s.linkedSchemeName && (
+                      <span className="rounded bg-[#0F766E]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#0F766E]">
+                        → {s.linkedSchemeName}{s.linkedVersion ? ` v${s.linkedVersion}` : ''}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-gray-600">{s.content}</p>
                 <div className="mt-2 flex items-center justify-between">
@@ -216,7 +226,7 @@ export default function Dashboard() {
                   {s.status === 'pending' && (
                     <div className="flex gap-1.5">
                       <button
-                        onClick={() => approveSuggestion(s.id)}
+                        onClick={() => { setApprovingId(s.id); setShowApproveModal(true); setApproveForm({ actionType: 'none', linkedSchemeId: s.relatedSchemeId, linkedVersion: 0 }) }}
                         className="flex items-center gap-1 rounded-md bg-teal-700 px-2 py-0.5 text-xs text-white hover:bg-teal-800"
                       >
                         <Check className="h-3 w-3" />采纳
@@ -236,6 +246,69 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {showApproveModal && approvingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-[480px] rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">采纳建议</h2>
+              <button onClick={() => { setShowApproveModal(false); setApprovingId(null) }} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-500">处理方式</label>
+                <div className="flex gap-3">
+                  {([['none', '仅标记采纳'], ['todo', '生成方案待办'], ['update', '关联方案版本']] as const).map(([val, label]) => (
+                    <label key={val} className={cn('flex cursor-pointer items-center gap-2 rounded-lg border px-3.5 py-2.5 text-sm transition-colors', approveForm.actionType === val ? 'border-[#0F766E] bg-[#0F766E]/5 text-[#0F766E]' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
+                      <input type="radio" name="actionType" value={val} checked={approveForm.actionType === val} onChange={() => setApproveForm(f => ({ ...f, actionType: val }))} className="sr-only" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {(approveForm.actionType === 'todo' || approveForm.actionType === 'update') && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-500">关联方案</label>
+                  <select value={approveForm.linkedSchemeId} onChange={(e) => setApproveForm(f => ({ ...f, linkedSchemeId: e.target.value, linkedVersion: 0 }))} className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]">
+                    <option value="">请选择方案</option>
+                    {schemes.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {approveForm.actionType === 'update' && approveForm.linkedSchemeId && (() => {
+                const scheme = schemes.find(s => s.id === approveForm.linkedSchemeId)
+                return scheme && scheme.versions.length > 0 ? (
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-500">关联版本</label>
+                    <select value={approveForm.linkedVersion} onChange={(e) => setApproveForm(f => ({ ...f, linkedVersion: Number(e.target.value) }))} className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]">
+                      <option value={0}>请选择版本</option>
+                      {scheme.versions.map(v => (
+                        <option key={v.id} value={v.version}>v{v.version} - {v.modifyReason.slice(0, 20)}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null
+              })()}
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => { setShowApproveModal(false); setApprovingId(null) }} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">取消</button>
+              <button onClick={() => {
+                const extra: Record<string, unknown> = { actionType: approveForm.actionType }
+                if (approveForm.actionType !== 'none') {
+                  const scheme = schemes.find(s => s.id === approveForm.linkedSchemeId)
+                  extra.linkedSchemeId = approveForm.linkedSchemeId
+                  extra.linkedSchemeName = scheme?.name ?? ''
+                  extra.linkedVersion = approveForm.linkedVersion || undefined
+                }
+                approveSuggestion(approvingId, extra as any)
+                setShowApproveModal(false)
+                setApprovingId(null)
+              }} className="rounded-lg bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0d6a63]">确认采纳</button>
+            </div>
+          </div>
+        </div>
+      )}
       {showSubmitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-[500px] rounded-xl bg-white p-6 shadow-xl">

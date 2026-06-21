@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, Send, Check, X, Plus, Trash2, Smartphone, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Search, Send, Check, X, Plus, Trash2, Smartphone, ToggleLeft, ToggleRight, AlertTriangle } from 'lucide-react'
 import { useDistributionStore } from '@/stores/distribution'
 import { useSchemeStore } from '@/stores/schemes'
 import { stores } from '@/data/mock'
@@ -26,6 +26,7 @@ export default function Distribution() {
   const [allowRegionalDiff, setAllowRegionalDiff] = useState(false)
   const [storeOverrides, setStoreOverrides] = useState<Record<string, string>>({})
   const [viewOverrides, setViewOverrides] = useState<StoreDistribution | null>(null)
+  const [viewDetail, setViewDetail] = useState<StoreDistribution | null>(null)
 
   const [homepageCopy, setHomepageCopy] = useState(miniAppConfig.homepageCopy)
   const [brandTone, setBrandTone] = useState(miniAppConfig.brandTone)
@@ -233,7 +234,10 @@ export default function Distribution() {
                       <td className="px-4 py-3 text-gray-500">{formatDate(d.distributedAt)}</td>
                       <td className="px-4 py-3 text-gray-500">{d.distributedBy}</td>
                       <td className="px-4 py-3">
-                        <button onClick={() => setViewOverrides(d)} className="text-xs font-medium text-[#0F766E] hover:text-[#0d6a63] hover:underline">查看差异</button>
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => setViewDetail(d)} className="text-xs font-medium text-[#0F766E] hover:text-[#0d6a63] hover:underline">回看详情</button>
+                          <button onClick={() => setViewOverrides(d)} className="text-xs font-medium text-gray-500 hover:text-gray-700 hover:underline">查看差异</button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -353,6 +357,97 @@ export default function Distribution() {
             </div>
             <div className="mt-4 flex justify-end">
               <button onClick={() => setViewOverrides(null)} className="rounded-lg bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0d6a63]">关闭</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-[600px] rounded-xl bg-white p-6 shadow-xl max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">下发详情回看</h2>
+              <button onClick={() => setViewDetail(null)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-5">
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <p className="text-xs text-gray-400 mb-1">方案名称</p>
+                  <p className="text-sm font-semibold text-gray-900">{viewDetail.schemeName}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">当前状态</p>
+                  <StatusBadge status={viewDetail.status} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-xs text-gray-400 mb-1">下发时间</p>
+                  <p className="text-sm font-medium text-gray-800">{formatDate(viewDetail.distributedAt)}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-xs text-gray-400 mb-1">操作人</p>
+                  <p className="text-sm font-medium text-gray-800">{viewDetail.distributedBy}</p>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-gray-500">覆盖门店（{viewDetail.storeIds.length} 家）</p>
+                  {viewDetail.allowRegionalDiff && (
+                    <span className="rounded-full bg-[#D4A853]/20 px-2 py-0.5 text-[10px] font-medium text-[#D4A853]">启用区域差异</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {viewDetail.storeIds.map((sid) => {
+                    const store = stores.find(s => s.id === sid)
+                    const override = viewDetail.regionalOverrides?.[sid]
+                    return (
+                      <div key={sid} className={cn('rounded-lg border p-2.5', override ? 'border-[#D4A853]/30 bg-[#D4A853]/5' : 'border-gray-100 bg-gray-50/50')}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-medium text-gray-800">{store?.name ?? sid}</span>
+                          <span className="rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-400">{store?.region}</span>
+                          {override && <span className="rounded bg-[#D4A853]/20 px-1 py-0.5 text-[10px] font-medium text-[#D4A853]">差异</span>}
+                        </div>
+                        {override && <p className="mt-1 text-[10px] text-gray-600 line-clamp-2">{override}</p>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {(() => {
+                const scheme = schemes.find(s => s.id === viewDetail.schemeId)
+                const latestVer = scheme?.versions.length ? scheme.versions[scheme.versions.length - 1] : null
+                return (
+                  <div className="rounded-lg border border-gray-100 p-3">
+                    <p className="text-xs font-medium text-gray-500 mb-2">方案版本信息</p>
+                    {scheme ? (
+                      <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-sm font-medium text-gray-900">{scheme.name}</span>
+                          <StatusBadge status={scheme.status} />
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          当前最新版本：{latestVer ? `v${latestVer.version}（生效：${latestVer.effectiveTime.replace('T', ' ')}）` : '暂无版本'}
+                        </p>
+                        {latestVer && viewDetail.distributedAt && new Date(latestVer.effectiveTime) > new Date(viewDetail.distributedAt) && (
+                          <div className="mt-2 rounded bg-amber-50 px-3 py-2 flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                            <span className="text-xs text-amber-700">此方案在下发后有新版本发布，请关注是否需要重新下发</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">方案已删除</p>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => setViewDetail(null)} className="rounded-lg bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0d6a63]">关闭</button>
             </div>
           </div>
         </div>

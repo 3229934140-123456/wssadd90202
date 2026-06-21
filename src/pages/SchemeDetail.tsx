@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, Send, Plus, Trash2, Clock, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useSchemeStore } from '@/stores/schemes'
 import { useCategoryStore } from '@/stores/categories'
 import StatusBadge from '@/components/StatusBadge'
@@ -81,11 +82,31 @@ export default function SchemeDetail() {
       return
     }
 
+    const currentProhibited = form.prohibitedFoods.map(f => f.name).join('、')
+    const currentRecommended = form.recommendedFoods.map(f => f.name).join('、')
+    const prevVersion = form.versions.length > 0 ? form.versions[form.versions.length - 1] : null
+
+    let prohibitedChanges = ''
+    let recommendedChanges = ''
+    if (prevVersion) {
+      if (prevVersion.prohibitedChanges !== currentProhibited) {
+        prohibitedChanges = currentProhibited
+      }
+      if (prevVersion.recommendedChanges !== currentRecommended) {
+        recommendedChanges = currentRecommended
+      }
+    } else {
+      prohibitedChanges = currentProhibited
+      recommendedChanges = currentRecommended
+    }
+
     const newVersion = {
       ...versionInfo,
       version: form.versions.length + 1,
       id: `ver-${Date.now()}`,
       createdAt: new Date().toISOString(),
+      prohibitedChanges,
+      recommendedChanges,
     }
 
     addVersion(form.id, newVersion)
@@ -435,24 +456,57 @@ export default function SchemeDetail() {
 
         <div className="w-[40%] space-y-6">
           <section className="rounded-xl border border-gray-100 bg-white p-6">
-            <h2 className="mb-4 text-sm font-semibold text-gray-900">版本记录</h2>
+            <h2 className="mb-4 text-sm font-semibold text-gray-900">版本时间线</h2>
             {form.versions.length === 0 ? (
               <p className="py-6 text-center text-xs text-gray-400">暂无版本记录</p>
             ) : (
-              <div className="space-y-3">
-                {form.versions.map((ver) => (
-                  <div key={ver.id} className="rounded-lg border border-gray-50 bg-gray-50/50 p-3">
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-[#0F766E]">v{ver.version}</span>
-                      <span className="flex items-center gap-1 text-xs text-gray-400">
-                        <Clock className="h-3 w-3" />
-                        {ver.effectiveTime}
-                      </span>
+              <div className="relative">
+                {form.versions.map((ver, idx) => {
+                  const isLatest = idx === form.versions.length - 1
+                  return (
+                    <div key={ver.id} className="relative flex gap-4 pb-5 last:pb-0">
+                      {idx < form.versions.length - 1 && (
+                        <div className="absolute left-[11px] top-6 h-full w-0.5 bg-[#0F766E]/20" />
+                      )}
+                      <div className={cn(
+                        'relative z-10 mt-0.5 h-6 w-6 shrink-0 rounded-full flex items-center justify-center',
+                        isLatest ? 'bg-[#0F766E]' : 'bg-[#0F766E]/40'
+                      )}>
+                        <span className="text-[10px] font-bold text-white">{ver.version}</span>
+                      </div>
+                      <div className="flex-1 rounded-lg border border-gray-100 bg-gray-50/50 p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className={cn('text-xs font-semibold', isLatest ? 'text-[#0F766E]' : 'text-gray-600')}>
+                              v{ver.version}
+                            </span>
+                            {isLatest && (
+                              <span className="rounded-full bg-[#0F766E] px-2 py-0.5 text-[10px] font-medium text-white">当前</span>
+                            )}
+                          </div>
+                          <span className="flex items-center gap-1 text-xs text-gray-400">
+                            <Clock className="h-3 w-3" />
+                            {ver.effectiveTime}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-700 mb-1">{ver.modifyReason}</p>
+                        <p className="text-xs text-gray-400 mb-2">修改人：{ver.modifiedBy}</p>
+                        {ver.prohibitedChanges && (
+                          <div className="mb-1.5 rounded bg-red-50/60 px-2.5 py-1.5">
+                            <span className="text-[10px] font-semibold text-red-500 mr-1.5">禁忌变化</span>
+                            <span className="text-[10px] text-red-600">{ver.prohibitedChanges}</span>
+                          </div>
+                        )}
+                        {ver.recommendedChanges && (
+                          <div className="rounded bg-green-50/60 px-2.5 py-1.5">
+                            <span className="text-[10px] font-semibold text-green-600 mr-1.5">建议变化</span>
+                            <span className="text-[10px] text-green-700">{ver.recommendedChanges}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-600">{ver.modifyReason}</p>
-                    <p className="mt-1 text-xs text-gray-400">修改人：{ver.modifiedBy}</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </section>
