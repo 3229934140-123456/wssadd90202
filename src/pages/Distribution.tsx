@@ -5,7 +5,7 @@ import { useSchemeStore } from '@/stores/schemes'
 import { stores } from '@/data/mock'
 import StatusBadge from '@/components/StatusBadge'
 import { cn } from '@/lib/utils'
-import type { HolidayReminder } from '@/types'
+import type { HolidayReminder, StoreDistribution } from '@/types'
 
 const regions = ['全部', '华东区', '华南区', '华北区']
 const brandTones = [
@@ -25,6 +25,7 @@ export default function Distribution() {
   const [searchScheme, setSearchScheme] = useState('')
   const [allowRegionalDiff, setAllowRegionalDiff] = useState(false)
   const [storeOverrides, setStoreOverrides] = useState<Record<string, string>>({})
+  const [viewOverrides, setViewOverrides] = useState<StoreDistribution | null>(null)
 
   const [homepageCopy, setHomepageCopy] = useState(miniAppConfig.homepageCopy)
   const [brandTone, setBrandTone] = useState(miniAppConfig.brandTone)
@@ -51,6 +52,7 @@ export default function Distribution() {
       storeIds: selectedStoreIds,
       status: 'pending',
       allowRegionalDiff,
+      regionalOverrides: storeOverrides,
       distributedAt: new Date().toISOString(),
       distributedBy: '运营管理员',
     })
@@ -171,6 +173,11 @@ export default function Distribution() {
                   <p className="text-xs text-gray-400 mb-1">下发门店数</p>
                   <p className="text-2xl font-bold text-[#0F766E]">{selectedStoreIds.length}</p>
                 </div>
+                {allowRegionalDiff && (
+                  <div className="rounded-lg bg-[#D4A853]/10 px-3 py-2 flex items-center gap-2">
+                    <span className="rounded-full bg-[#D4A853] px-2 py-0.5 text-[10px] font-medium text-white">启用区域差异</span>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-gray-400 mb-2">门店列表</p>
                   <div className="space-y-1.5 max-h-40 overflow-y-auto">
@@ -178,6 +185,7 @@ export default function Distribution() {
                     {selectedStores.map((s) => (
                       <div key={s.id} className="flex items-center gap-2 text-xs text-gray-700">
                         <Check className="h-3 w-3 text-[#0F766E]" />{s.name}
+                        {storeOverrides[s.id] && <span className="ml-auto rounded bg-[#D4A853]/20 px-1.5 py-0.5 text-[10px] text-[#D4A853]">有差异</span>}
                       </div>
                     ))}
                   </div>
@@ -200,21 +208,36 @@ export default function Distribution() {
                 <tr className="bg-gray-50/80">
                   <th className="px-4 py-3 text-left font-medium text-gray-500">方案名称</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500">下发门店数</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">差异门店</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500">状态</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500">下发时间</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500">操作人</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">操作</th>
                 </tr>
               </thead>
               <tbody>
-                {distributions.map((d) => (
-                  <tr key={d.id} className="border-t border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-4 py-3 text-gray-900">{d.schemeName}</td>
-                    <td className="px-4 py-3 text-gray-600">{d.storeIds.length}</td>
-                    <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
-                    <td className="px-4 py-3 text-gray-500">{formatDate(d.distributedAt)}</td>
-                    <td className="px-4 py-3 text-gray-500">{d.distributedBy}</td>
-                  </tr>
-                ))}
+                {distributions.map((d) => {
+                  const overrideCount = Object.entries(d.regionalOverrides || {}).filter(([_, v]) => v).length
+                  return (
+                    <tr key={d.id} className="border-t border-gray-50 hover:bg-gray-50/50">
+                      <td className="px-4 py-3 text-gray-900">{d.schemeName}</td>
+                      <td className="px-4 py-3 text-gray-600">{d.storeIds.length}</td>
+                      <td className="px-4 py-3">
+                        {overrideCount > 0 ? (
+                          <span className="rounded bg-[#D4A853]/10 px-2 py-1 text-xs font-medium text-[#D4A853]">{overrideCount} 家门店</span>
+                        ) : (
+                          <span className="text-xs text-gray-400">无</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
+                      <td className="px-4 py-3 text-gray-500">{formatDate(d.distributedAt)}</td>
+                      <td className="px-4 py-3 text-gray-500">{d.distributedBy}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => setViewOverrides(d)} className="text-xs font-medium text-[#0F766E] hover:text-[#0d6a63] hover:underline">查看差异</button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -298,6 +321,38 @@ export default function Distribution() {
               <div className="h-6 bg-gray-100 flex items-center justify-center">
                 <div className="w-20 h-1 rounded-full bg-gray-300" />
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewOverrides && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-[500px] rounded-xl bg-white p-6 shadow-xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">区域差异内容</h2>
+              <button onClick={() => setViewOverrides(null)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-3">
+              {Object.entries(viewOverrides.regionalOverrides || {}).filter(([_, v]) => v).length === 0 ? (
+                <p className="text-center text-xs text-gray-400 py-8">无区域差异</p>
+              ) : (
+                Object.entries(viewOverrides.regionalOverrides || {}).filter(([_, v]) => v).map(([storeId, content]) => {
+                  const store = stores.find(s => s.id === storeId)
+                  return (
+                    <div key={storeId} className="rounded-lg border border-gray-100 bg-gray-50/50 p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-gray-800">{store?.name ?? storeId}</span>
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{store?.region}</span>
+                      </div>
+                      <p className="text-xs text-gray-600">{content}</p>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => setViewOverrides(null)} className="rounded-lg bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0d6a63]">关闭</button>
             </div>
           </div>
         </div>

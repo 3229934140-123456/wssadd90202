@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
-import { TrendingUp, Eye, AlertTriangle, Check, X, Filter } from 'lucide-react'
+import { TrendingUp, Eye, AlertTriangle, Check, X, Filter, Plus } from 'lucide-react'
+import { stores } from '@/data/mock'
+import { useSchemeStore } from '@/stores/schemes'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
@@ -16,8 +18,11 @@ const rankBadge = (i: number) => {
 }
 
 export default function Dashboard() {
-  const { storeMetrics, suggestions, approveSuggestion, rejectSuggestion } = useDashboardStore()
+  const { storeMetrics, suggestions, approveSuggestion, rejectSuggestion, addSuggestion } = useDashboardStore()
+  const { schemes } = useSchemeStore()
   const [suggestionFilter, setSuggestionFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
+  const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [submitForm, setSubmitForm] = useState({ storeId: '', relatedSchemeId: '', content: '', submitter: '' })
 
   const avgActivation = useMemo(() => {
     const sum = storeMetrics.reduce((a, s) => a + s.activationRate, 0)
@@ -45,6 +50,28 @@ export default function Dashboard() {
   }, [storeMetrics])
 
   const rankedStores = useMemo(() => [...storeMetrics].sort((a, b) => b.activationRate - a.activationRate), [storeMetrics])
+
+  const handleSubmitSuggestion = () => {
+    if (!submitForm.storeId || !submitForm.relatedSchemeId || !submitForm.content || !submitForm.submitter) {
+      alert('请填写所有必填项')
+      return
+    }
+    const store = stores.find(s => s.id === submitForm.storeId)
+    const scheme = schemes.find(s => s.id === submitForm.relatedSchemeId)
+    addSuggestion({
+      id: `sug-${Date.now()}`,
+      storeId: submitForm.storeId,
+      storeName: store?.name ?? '',
+      submitter: submitForm.submitter,
+      content: submitForm.content,
+      relatedSchemeId: submitForm.relatedSchemeId,
+      relatedSchemeName: scheme?.name ?? '',
+      status: 'pending',
+      createdAt: new Date().toISOString().slice(0, 10)
+    })
+    setShowSubmitModal(false)
+    setSubmitForm({ storeId: '', relatedSchemeId: '', content: '', submitter: '' })
+  }
 
   const filteredSuggestions = useMemo(() => {
     if (suggestionFilter === 'all') return suggestions
@@ -151,21 +178,26 @@ export default function Dashboard() {
         <div className="col-span-2 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-800">优化建议</h2>
-            <div className="flex gap-1">
-              {filterTabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setSuggestionFilter(tab.key)}
-                  className={cn(
-                    'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                    suggestionFilter === tab.key
-                      ? 'bg-teal-700 text-white'
-                      : 'text-gray-500 hover:bg-gray-100'
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1">
+                {filterTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setSuggestionFilter(tab.key)}
+                    className={cn(
+                      'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                      suggestionFilter === tab.key
+                        ? 'bg-teal-700 text-white'
+                        : 'text-gray-500 hover:bg-gray-100'
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setShowSubmitModal(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F766E]/10 px-3 py-1.5 text-xs font-medium text-[#0F766E] hover:bg-[#0F766E]/20 transition-colors">
+                <Plus className="h-3.5 w-3.5" />提交建议
+              </button>
             </div>
           </div>
           <div className="space-y-3">
@@ -203,6 +235,49 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {showSubmitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-[500px] rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">提交优化建议</h2>
+              <button onClick={() => { setShowSubmitModal(false); setSubmitForm({ storeId: '', relatedSchemeId: '', content: '', submitter: '' }) }} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-500">选择门店</label>
+                <select value={submitForm.storeId} onChange={(e) => setSubmitForm(f => ({ ...f, storeId: e.target.value }))} className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]">
+                  <option value="">请选择门店</option>
+                  {stores.filter(s => s.isActive).map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.region})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-500">关联方案</label>
+                <select value={submitForm.relatedSchemeId} onChange={(e) => setSubmitForm(f => ({ ...f, relatedSchemeId: e.target.value }))} className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]">
+                  <option value="">请选择方案</option>
+                  {schemes.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-500">顾客追问内容</label>
+                <textarea value={submitForm.content} onChange={(e) => setSubmitForm(f => ({ ...f, content: e.target.value }))} rows={4} className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]" placeholder="请详细描述顾客高频追问的问题..." />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-500">提交人</label>
+                <input value={submitForm.submitter} onChange={(e) => setSubmitForm(f => ({ ...f, submitter: e.target.value }))} className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]" placeholder="请输入您的姓名" />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => { setShowSubmitModal(false); setSubmitForm({ storeId: '', relatedSchemeId: '', content: '', submitter: '' }) }} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">取消</button>
+              <button onClick={handleSubmitSuggestion} className="rounded-lg bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0d6a63]">提交</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

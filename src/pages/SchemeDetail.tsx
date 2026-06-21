@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, Send, Plus, Trash2, Clock } from 'lucide-react'
+import { ArrowLeft, Save, Send, Plus, Trash2, Clock, X } from 'lucide-react'
 import { useSchemeStore } from '@/stores/schemes'
 import { useCategoryStore } from '@/stores/categories'
 import StatusBadge from '@/components/StatusBadge'
@@ -34,7 +34,7 @@ const emptyScheme: Scheme = {
 export default function SchemeDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { schemes, updateScheme, addScheme, publishScheme } = useSchemeStore()
+  const { schemes, updateScheme, addScheme, publishScheme, addVersion } = useSchemeStore()
   const { categories } = useCategoryStore()
 
   const isNew = id === 'new'
@@ -44,6 +44,9 @@ export default function SchemeDetail() {
   const [newProhibited, setNewProhibited] = useState<{ name: string; reason: string; severity: 'high' | 'medium' | 'low' }>({ name: '', reason: '', severity: 'high' })
   const [newRecommended, setNewRecommended] = useState({ name: '', reason: '', severity: 'low' as const })
   const [newStage, setNewStage] = useState({ name: '', dayStart: 1, dayEnd: 7, description: '' })
+  const [showVersionModal, setShowVersionModal] = useState(false)
+  const [versionInfo, setVersionInfo] = useState({ modifiedBy: '', modifyReason: '', effectiveTime: new Date().toISOString().slice(0, 16) })
+  const [pendingAction, setPendingAction] = useState<'draft' | 'publish' | null>(null)
 
   useEffect(() => {
     if (existing) setForm(existing)
@@ -55,19 +58,51 @@ export default function SchemeDetail() {
   const handleSaveDraft = () => {
     if (isNew) {
       addScheme({ ...form, id: `sch-${Date.now()}`, status: 'draft' })
+      navigate('/schemes')
     } else {
-      updateScheme(form.id, { ...form, status: 'draft' })
+      setPendingAction('draft')
+      setShowVersionModal(true)
     }
-    navigate('/schemes')
   }
 
   const handlePublish = () => {
     if (isNew) {
       const newId = `sch-${Date.now()}`
       addScheme({ ...form, id: newId, status: 'published' })
+      navigate('/schemes')
     } else {
+      setPendingAction('publish')
+      setShowVersionModal(true)
+    }
+  }
+
+  const confirmVersion = () => {
+    if (!versionInfo.modifiedBy.trim() || !versionInfo.modifyReason.trim()) {
+      return
+    }
+
+    const newVersion = {
+      ...versionInfo,
+      version: form.versions.length + 1,
+      id: `ver-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    }
+
+    addVersion(form.id, newVersion)
+
+    const updatedForm = { ...form, versions: [...form.versions, newVersion] }
+    setForm(updatedForm)
+
+    if (pendingAction === 'draft') {
+      updateScheme(form.id, { ...updatedForm, status: 'draft' })
+    } else if (pendingAction === 'publish') {
+      updateScheme(form.id, { ...updatedForm, status: 'published' })
       publishScheme(form.id)
     }
+
+    setShowVersionModal(false)
+    setVersionInfo({ modifiedBy: '', modifyReason: '', effectiveTime: new Date().toISOString().slice(0, 16) })
+    setPendingAction(null)
     navigate('/schemes')
   }
 
@@ -483,6 +518,34 @@ export default function SchemeDetail() {
           </section>
         </div>
       </div>
+      {showVersionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-[480px] rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">版本信息</h2>
+              <button onClick={() => setShowVersionModal(false)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-500">修改人</label>
+                <input value={versionInfo.modifiedBy} onChange={(e) => setVersionInfo(v => ({ ...v, modifiedBy: e.target.value }))} className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]" placeholder="请输入姓名" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-500">修改原因</label>
+                <textarea value={versionInfo.modifyReason} onChange={(e) => setVersionInfo(v => ({ ...v, modifyReason: e.target.value }))} rows={3} className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]" placeholder="请输入修改原因" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-500">生效时间</label>
+                <input type="datetime-local" value={versionInfo.effectiveTime} onChange={(e) => setVersionInfo(v => ({ ...v, effectiveTime: e.target.value }))} className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-1 focus:ring-[#0F766E]" />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setShowVersionModal(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">取消</button>
+              <button onClick={confirmVersion} className="rounded-lg bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0d6a63]">确认保存</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

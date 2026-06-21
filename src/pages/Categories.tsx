@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, Sparkles, Syringe, Scissors, Zap, X, Check } from 'lucide-react'
 import { useCategoryStore } from '@/stores/categories'
-import { projects } from '@/data/mock'
+import { useProjectStore } from '@/stores/projects'
 import type { Project } from '@/types'
 
 const iconOptions = [
@@ -24,6 +24,7 @@ const iconMap: Record<string, (typeof iconOptions)[number]> = {
 
 export default function Categories() {
   const { categories, addCategory, updateCategory, deleteCategory } = useCategoryStore()
+  const { projects, addProject } = useProjectStore()
   const [showModal, setShowModal] = useState(false)
   const [newName, setNewName] = useState('')
   const [selectedIcon, setSelectedIcon] = useState('sparkles')
@@ -53,6 +54,8 @@ export default function Categories() {
 
   const handleAddProject = (categoryId: string) => {
     if (!newProjectName.trim()) return
+    const newProj: Project = { id: `proj-${Date.now()}`, name: newProjectName.trim(), categoryId, schemeCount: 0 }
+    addProject(newProj)
     const cat = categories.find((c) => c.id === categoryId)
     if (cat) updateCategory(categoryId, { projectCount: cat.projectCount + 1 })
     setNewProjectName('')
@@ -91,7 +94,7 @@ export default function Categories() {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-900 truncate">{category.name}</span>
                     <span className="shrink-0 rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal">
-                      {categoryProjects.length}项
+                      {projects.filter(p => p.categoryId === category.id).length}项
                     </span>
                   </div>
                 </div>

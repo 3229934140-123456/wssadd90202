@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
 import { Search, Plus, Pencil, Trash2, ChevronDown, ChevronRight, X, Check, MessageCircleQuestion } from 'lucide-react'
 import { useQAStore } from '@/stores/qa'
-import { projects, categories } from '@/data/mock'
+import { useProjectStore } from '@/stores/projects'
+import { categories } from '@/data/mock'
 import { cn } from '@/lib/utils'
 import type { QAItem } from '@/types'
 
@@ -15,6 +16,7 @@ const empty: Form = { question: '', answer: '', relatedProjectIds: [], tags: [],
 
 export default function QA() {
   const { items, addQA, updateQA, deleteQA } = useQAStore()
+  const { projects } = useProjectStore()
   const [search, setSearch] = useState('')
   const [filterId, setFilterId] = useState('')
   const [expCats, setExpCats] = useState<Set<string>>(new Set(categories.map((c) => c.id)))

@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
 import { Plus, Pencil, Trash2, X, Check, User, Tag } from 'lucide-react'
 import { useDoctorOrderStore } from '@/stores/doctorOrders'
-import { projects, categories } from '@/data/mock'
+import { useProjectStore } from '@/stores/projects'
+import { categories } from '@/data/mock'
 import { cn } from '@/lib/utils'
 import type { DoctorOrder } from '@/types'
 
@@ -40,6 +41,7 @@ const emptyForm: OrderForm = { doctorName: '', tags: [], tagInput: '', content: 
 
 export default function DoctorOrders() {
   const { orders, addOrder, updateOrder, deleteOrder } = useDoctorOrderStore()
+  const { projects } = useProjectStore()
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projects[0]?.id ?? '')
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)

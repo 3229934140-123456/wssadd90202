@@ -79,6 +79,7 @@ export interface StoreDistribution {
   storeIds: string[]
   status: 'pending' | 'active' | 'expired'
   allowRegionalDiff: boolean
+  regionalOverrides: Record<string, string>
   distributedAt: string
   distributedBy: string
 }

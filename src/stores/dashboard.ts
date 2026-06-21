@@ -7,6 +7,7 @@ interface DashboardState {
   suggestions: OptimizationSuggestion[]
   approveSuggestion: (id: string) => void
   rejectSuggestion: (id: string) => void
+  addSuggestion: (suggestion: OptimizationSuggestion) => void
 }
 
 export const useDashboardStore = create<DashboardState>((set) => ({
@@ -27,5 +28,9 @@ export const useDashboardStore = create<DashboardState>((set) => ({
         s.id === id ? { ...s, status: 'rejected' as const } : s
       ),
     }))
+  },
+
+  addSuggestion: (suggestion) => {
+    set((state) => ({ suggestions: [suggestion, ...state.suggestions] }))
   },
 }))
